@@ -1,86 +1,215 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Warframe Market Estimator API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST en **NestJS** que permite buscar ítems de Warframe Market usando texto libre y obtener estimaciones de costos en Platinum basadas en órdenes reales del mercado.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🎯 ¿Qué Problema Resuelve?
 
-## Description
+Esta API resuelve dos necesidades principales para jugadores de Warframe:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+1. **Búsqueda sin conocer slugs**  
+   Los usuarios no necesitan conocer los identificadores técnicos (slugs) de Warframe Market. Simplemente escriben texto normal como "gauss prime" o "wisp" y obtienen resultados relevantes con nombres legibles y sus respectivos slugs.
 
-## Project setup
+2. **Cálculo de costos para armar sets/builds**  
+   Permite calcular cuánto cuesta comprar conjuntos completos o piezas individuales usando precios reales del mercado, incluyendo recomendaciones de vendedores confiables.
 
+## ✨ Características
+
+- 🔍 **Búsqueda inteligente de ítems** con texto libre
+- 💰 **Estimación de costos** basada en órdenes reales del mercado
+- 👤 **Recomendación de vendedores** por reputación y disponibilidad
+- 🎮 **Plataforma:** PC
+- 💎 **Moneda:** Platinum
+- 📊 **Fuente de datos:** Warframe Market API v2
+- ⚡ **Cache inteligente** para optimizar consultas
+
+## 🏗️ Arquitectura
+
+### CatalogModule
+- Descarga y mantiene catálogo de ítems de Warframe Market
+- Cache in-memory con TTL de 24h
+- Búsqueda optimizada con ranking inteligente:
+  - Prioriza sets de Warframes
+  - Luego componentes y blueprints
+  - Finalmente mods, skins y cosméticos
+
+### EstimatorModule
+- Procesa solicitudes de estimación de costos
+- Consulta órdenes activas por ítem
+- Filtra y selecciona vendedores recomendados
+- Calcula subtotales y total general
+
+## 🚀 Instalación
+
+### Requisitos
+- Node.js (v16 o superior)
+- pnpm (recomendado) o npm
+
+### Clonar el repositorio
 ```bash
-$ pnpm install
+git clone https://github.com/Kwasin02/estimator-warframe.git
+cd estimator-warframe
 ```
 
-## Compile and run the project
-
+### Instalar dependencias
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
 ```
 
-## Run tests
+## 💻 Ejecución
 
 ```bash
-# unit tests
-$ pnpm run test
+# Modo desarrollo
+pnpm run start:dev
 
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+# Modo producción
+pnpm run build
+pnpm run start:prod
 ```
 
-## Deployment
+La API estará disponible en `http://localhost:3000`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 📖 Uso de la API
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 1. Buscar ítems
+
+Busca ítems usando texto libre sin necesidad de conocer el slug exacto.
+
+**Endpoint:** `GET /catalog/search`
+
+**Query Parameters:**
+- `q` (requerido): Texto de búsqueda
+
+**Ejemplo:**
+```bash
+curl "http://localhost:3000/catalog/search?q=gauss"
+```
+
+**Respuesta:**
+```json
+{
+  "results": [
+    {
+      "slug": "gauss_prime_set",
+      "name": "Gauss Prime Set",
+      "tags": ["prime", "set", "warframe"]
+    },
+    {
+      "slug": "gauss_prime_blueprint",
+      "name": "Gauss Prime Blueprint",
+      "tags": ["prime", "blueprint", "component"]
+    }
+  ]
+}
+```
+
+### 2. Estimar costos
+
+Calcula el costo total en Platinum para comprar una lista de ítems.
+
+**Endpoint:** `POST /estimator/estimate`
+
+**Body:**
+```json
+{
+  "items": [
+    {
+      "slug": "gauss_prime_set",
+      "quantity": 1
+    },
+    {
+      "slug": "wisp_prime_chassis",
+      "quantity": 2
+    }
+  ]
+}
+```
+
+**Respuesta:**
+```json
+{
+  "total": 450,
+  "currency": "platinum",
+  "itemsEstimate": [
+    {
+      "slug": "gauss_prime_set",
+      "quantity": 1,
+      "unitPrice": 250,
+      "subtotal": 250,
+      "seller": {
+        "username": "TennoTrader",
+        "reputation": 98,
+        "status": "ingame"
+      }
+    },
+    {
+      "slug": "wisp_prime_chassis",
+      "quantity": 2,
+      "unitPrice": 100,
+      "subtotal": 200,
+      "seller": {
+        "username": "PrimeSeller",
+        "reputation": 95,
+        "status": "online"
+      }
+    }
+  ],
+  "unavailable": []
+}
+```
+
+## 🧪 Testing
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# Tests unitarios
+pnpm run test
+
+# Tests e2e
+pnpm run test:e2e
+
+# Cobertura
+pnpm run test:cov
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 🛠️ Stack Tecnológico
 
-## Resources
+- **Framework:** NestJS
+- **Lenguaje:** TypeScript
+- **HTTP Client:** Axios
+- **Validación:** class-validator, class-transformer
+- **Testing:** Jest
 
-Check out a few resources that may come in handy when working with NestJS:
+## 📊 Flujo de Datos
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
+1. Usuario busca "gauss prime" → API consulta catálogo local
+2. API retorna resultados con slugs
+3. Usuario solicita estimación con slugs
+4. API consulta órdenes activas en Warframe Market
+5. API filtra vendedores por estado y reputación
+6. API calcula costos y retorna estimación
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📝 Licencia
+
+Este proyecto está bajo la licencia MIT.
+
+## 🔗 Enlaces Útiles
+
+- [Warframe Market](https://warframe.market/)
+- [Warframe Market API Documentation](https://docs.warframe.market/)
+- [NestJS Documentation](https://docs.nestjs.com)
+
+---
+
+**Desarrollado con ❤️ para la comunidad de Warframe**
 - Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
 ## Support
