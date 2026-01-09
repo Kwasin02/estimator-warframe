@@ -11,9 +11,11 @@ type ItemShort = {
   slug: string;
   tags?: string[];
   i18n?: {
-    name?: string;
-    icon?: string;
-    thumb?: string;
+    en?: {
+      name?: string;
+      icon?: string;
+      thumb?: string;
+    };
   };
 };
 
@@ -50,18 +52,16 @@ export class CatalogService {
     }
 
     const items = await this.getItemsCached();
-
     const normalizedQ = this.normalize(query);
 
     const scored = items
       .map((it) => {
-        const name = it.i18n?.name ?? it.slug;
+        const name = it.i18n?.en?.name ?? it.slug;
         const hay = this.normalize(
           `${it.slug} ${name} ${(it.tags ?? []).join(' ')}`,
         );
 
-        // scoring simple:
-        // 0 = mejor (startsWith), 1 = contains
+        // 0 = startsWith (mejor), 1 = contains
         let score = 999;
         if (
           this.normalize(it.slug).startsWith(normalizedQ) ||
@@ -76,15 +76,15 @@ export class CatalogService {
       })
       .filter((x) => x.score !== 999)
       .sort((a, b) => {
-        // 1) score base (startsWith vs contains)
+        // 1) score base
         if (a.score !== b.score) return a.score - b.score;
 
-        // 2) intención por tags: warframe set > warframe parts > blueprint > otros
+        // 2) intención por tags (warframe sets primero)
         const pa = this.intentPriority(a.it);
         const pb = this.intentPriority(b.it);
         if (pa !== pb) return pa - pb;
 
-        // 3) desempate: slug más corto suele ser más relevante
+        // 3) desempate: slug más corto
         return a.it.slug.length - b.it.slug.length;
       })
       .slice(0, safeLimit);
@@ -92,8 +92,9 @@ export class CatalogService {
     const results: ItemSearchResultDto[] = scored.map(({ it, name }) => ({
       slug: it.slug,
       name,
-      icon: it.i18n?.icon ?? null,
-      thumb: it.i18n?.thumb ?? null,
+      // imágenes NO importan, pero las dejo por si luego las usas
+      icon: it.i18n?.en?.icon ?? null,
+      thumb: it.i18n?.en?.thumb ?? null,
       tags: it.tags ?? [],
     }));
 
@@ -120,7 +121,7 @@ export class CatalogService {
       this.http.get(url, {
         headers: {
           Platform: 'pc',
-          Language: 'en', // ✅ CAMBIO: forzar i18n en inglés
+          Language: 'en',
         },
         timeout: 15_000,
       }),
@@ -129,15 +130,14 @@ export class CatalogService {
     const body = resp.data as WfmEnvelope<any>;
 
     if (body?.error) {
-      // si falla, y teníamos cache viejo, úsalo para no tumbar la UX
+      // si falla y existe cache, úsalo
       if (this.itemsCache) return this.itemsCache;
       return [];
     }
 
-    // Extraer lista de items de forma tolerante
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const candidate = body?.data?.items ?? body?.data;
-
+    // /v2/items devuelve data: ItemShort[]
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const candidate = body?.data;
     const items: ItemShort[] = Array.isArray(candidate)
       ? (candidate as ItemShort[])
       : [];
@@ -148,7 +148,6 @@ export class CatalogService {
     return items;
   }
 
-  // ✅ CAMBIO: ranking “intención” para resultados más útiles (sets primero)
   private intentPriority(it: ItemShort): number {
     const tags = new Set((it.tags ?? []).map((t) => this.normalize(t)));
 
@@ -161,8 +160,8 @@ export class CatalogService {
     if (isWarframe && isSet) return 0; // warframe set
     if (isWarframe && isBlueprint && isComponent) return 1; // partes blueprint
     if (isWarframe && isBlueprint) return 2; // blueprint general
-    if (tags.has('mod')) return 5; // mods más abajo
-    if (tags.has('skin') || tags.has('arcane_helmet')) return 6; // cosméticos al final
+    if (tags.has('mod')) return 5; // mods abajo
+    if (tags.has('skin') || tags.has('arcane_helmet')) return 6; // cosméticos abajo
     return 3; // resto
   }
 
