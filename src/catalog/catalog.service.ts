@@ -28,7 +28,7 @@ type WfmEnvelope<T> = {
 export class CatalogService {
   private itemsCache: ItemShort[] | null = null;
   private cacheFetchedAt: number | null = null;
-  private readonly cacheTtlMs = 24 * 60 * 60 * 1000; // 24h (catálogo cambia poco)
+  private readonly cacheTtlMs = 24 * 60 * 60 * 1000; // 24h
 
   private readonly baseUrl = 'https://api.warframe.market/v2';
 
@@ -66,16 +66,25 @@ export class CatalogService {
         if (
           this.normalize(it.slug).startsWith(normalizedQ) ||
           this.normalize(name).startsWith(normalizedQ)
-        )
+        ) {
           score = 0;
-        else if (hay.includes(normalizedQ)) score = 1;
+        } else if (hay.includes(normalizedQ)) {
+          score = 1;
+        }
 
         return { it, name, score };
       })
       .filter((x) => x.score !== 999)
       .sort((a, b) => {
+        // 1) score base (startsWith vs contains)
         if (a.score !== b.score) return a.score - b.score;
-        // desempate: más corto suele ser más relevante
+
+        // 2) intención por tags: warframe set > warframe parts > blueprint > otros
+        const pa = this.intentPriority(a.it);
+        const pb = this.intentPriority(b.it);
+        if (pa !== pb) return pa - pb;
+
+        // 3) desempate: slug más corto suele ser más relevante
         return a.it.slug.length - b.it.slug.length;
       })
       .slice(0, safeLimit);
@@ -110,7 +119,8 @@ export class CatalogService {
     const resp = await firstValueFrom(
       this.http.get(url, {
         headers: {
-          Platform: 'pc', // PC-only (aunque el catálogo suele ser global)
+          Platform: 'pc',
+          Language: 'en', // ✅ CAMBIO: forzar i18n en inglés
         },
         timeout: 15_000,
       }),
@@ -138,11 +148,29 @@ export class CatalogService {
     return items;
   }
 
+  // ✅ CAMBIO: ranking “intención” para resultados más útiles (sets primero)
+  private intentPriority(it: ItemShort): number {
+    const tags = new Set((it.tags ?? []).map((t) => this.normalize(t)));
+
+    const isWarframe = tags.has('warframe');
+    const isSet = tags.has('set');
+    const isBlueprint = tags.has('blueprint');
+    const isComponent = tags.has('component');
+
+    // menor = mejor
+    if (isWarframe && isSet) return 0; // warframe set
+    if (isWarframe && isBlueprint && isComponent) return 1; // partes blueprint
+    if (isWarframe && isBlueprint) return 2; // blueprint general
+    if (tags.has('mod')) return 5; // mods más abajo
+    if (tags.has('skin') || tags.has('arcane_helmet')) return 6; // cosméticos al final
+    return 3; // resto
+  }
+
   private normalize(s: string): string {
     return s
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // quitar tildes
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9 _-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
